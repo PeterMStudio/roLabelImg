@@ -98,7 +98,8 @@ class MainWindow(QMainWindow, WindowMixin):
         self.dirname = None
         self.labelHist = []
         self.lastOpenDir = None
-
+        self.currIndex = 0
+        self.imgCount = len(self.mImgList)
         # Whether we need to save or not.
         self.dirty = False
 
@@ -122,6 +123,8 @@ class MainWindow(QMainWindow, WindowMixin):
 
         listLayout = QVBoxLayout()
         listLayout.setContentsMargins(0, 0, 0, 0)
+
+
         
         # Create a widget for using default label
         self.useDefautLabelCheckbox = QCheckBox(u'Use default label')
@@ -132,6 +135,9 @@ class MainWindow(QMainWindow, WindowMixin):
         useDefautLabelQHBoxLayout.addWidget(self.defaultLabelTextLine)
         useDefautLabelContainer = QWidget()
         useDefautLabelContainer.setLayout(useDefautLabelQHBoxLayout)
+
+        self.label_num = QLabel()
+        self.current_label = QLabel()
 
         # Create a widget for edit and diffc button
         self.diffcButton = QCheckBox(u'difficult')
@@ -144,6 +150,9 @@ class MainWindow(QMainWindow, WindowMixin):
         listLayout.addWidget(self.editButton)
         listLayout.addWidget(self.diffcButton)
         listLayout.addWidget(useDefautLabelContainer)
+        listLayout.addWidget(self.label_num)
+        listLayout.addWidget(self.current_label)
+
 
         # Create and add a widget for showing current label items
         self.labelList = QListWidget()
@@ -155,7 +164,6 @@ class MainWindow(QMainWindow, WindowMixin):
         # Connect to itemChanged to detect checkbox changes.
         self.labelList.itemChanged.connect(self.labelItemChanged)
         listLayout.addWidget(self.labelList)
-
         self.dock = QDockWidget(u'Box Labels', self)
         self.dock.setObjectName(u'Label')
         self.dock.setWidget(labelListContainer)
@@ -176,6 +184,8 @@ class MainWindow(QMainWindow, WindowMixin):
         # self.colorDialog = ColorDialog(parent=self)
 
         self.canvas = Canvas()
+
+
         self.canvas.zoomRequest.connect(self.zoomRequest)
 
         scroll = QScrollArea()
@@ -185,6 +195,7 @@ class MainWindow(QMainWindow, WindowMixin):
             Qt.Vertical: scroll.verticalScrollBar(),
             Qt.Horizontal: scroll.horizontalScrollBar()
         }
+        self.srollArea = scroll
         self.canvas.scrollRequest.connect(self.scrollRequest)
 
         self.canvas.newShape.connect(self.newShape)
@@ -656,9 +667,9 @@ class MainWindow(QMainWindow, WindowMixin):
 
     # Tzutalin 20160906 : Add file list and dock to move faster
     def fileitemDoubleClicked(self, item=None):
-        currIndex = self.mImgList.index(ustr(item.text()))
-        if currIndex < len(self.mImgList):
-            filename = self.mImgList[currIndex]
+        self.currIndex = self.mImgList.index(ustr(item.text()))
+        if self.currIndex < self.imgCount:
+            filename = self.mImgList[self.currIndex]
             if filename:
                 self.loadFile(filename)
 
@@ -699,11 +710,15 @@ class MainWindow(QMainWindow, WindowMixin):
                 self.shapesToItems[shape].setSelected(True)
             else:
                 self.labelList.clearSelection()
+        self.update_label_num()
         self.actions.delete.setEnabled(selected)
         self.actions.copy.setEnabled(selected)
         self.actions.edit.setEnabled(selected)
         self.actions.shapeLineColor.setEnabled(selected)
         self.actions.shapeFillColor.setEnabled(selected)
+
+    def update_label_num(self):
+        self.label_num.setText(f"当前图片标注数量:{len(self.itemsToShapes.items())}")
 
     def addLabel(self, shape):
         item = HashableQListWidgetItem(shape.label)
@@ -712,6 +727,7 @@ class MainWindow(QMainWindow, WindowMixin):
         self.itemsToShapes[item] = shape
         self.shapesToItems[shape] = item
         self.labelList.addItem(item)
+        self.update_label_num()
         for action in self.actions.onShapesPresent:
             action.setEnabled(True)
 
@@ -723,6 +739,7 @@ class MainWindow(QMainWindow, WindowMixin):
         self.labelList.takeItem(self.labelList.row(item))
         del self.shapesToItems[shape]
         del self.itemsToShapes[item]
+        self.update_label_num()
 
     def loadLabels(self, shapes):
         s = []
@@ -789,11 +806,16 @@ class MainWindow(QMainWindow, WindowMixin):
     def labelSelectionChanged(self):
         item = self.currentItem()
         if item and self.canvas.editing():
+            self.current_label.setText("当前选中标注框标签为："+item.text())
+            #QMessageBox.critical(self, "Label",item.text())
             self._noSelectionSlot = True
             self.canvas.selectShape(self.itemsToShapes[item])
             shape = self.itemsToShapes[item]
             # Add Chris
             self.diffcButton.setChecked(shape.difficult)
+
+
+
 
     def labelItemChanged(self, item):
         shape = self.itemsToShapes[item]
@@ -853,9 +875,60 @@ class MainWindow(QMainWindow, WindowMixin):
         self.setZoom(self.zoomWidget.value() + increment)
 
     def zoomRequest(self, delta):
-        units = delta / (8 * 15)
+        # units = delta / (8 * 15)
+        # scale = 10
+        # self.addZoom(scale * units)
+        # get the current scrollbar positions
+        # calculate the percentages ~ coordinates
+        h_bar = self.scrollBars[Qt.Horizontal]
+        v_bar = self.scrollBars[Qt.Vertical]
+
+        # get the current maximum, to know the difference after zooming
+        h_bar_max = h_bar.maximum()
+        v_bar_max = v_bar.maximum()
+
+        # get the cursor position and canvas size
+        # calculate the desired movement from 0 to 1
+        # where 0 = move left
+        #       1 = move right
+        # up and down analogous
+        cursor = QCursor()
+        pos = cursor.pos()
+        relative_pos = QWidget.mapFromGlobal(self, pos)
+
+        cursor_x = relative_pos.x()
+        cursor_y = relative_pos.y()
+
+        w = self.srollArea.width()
+        h = self.srollArea.height()
+
+        # the scaling from 0 to 1 has some padding
+        # you don't have to hit the very leftmost pixel for a maximum-left movement
+        margin = 0.1
+        move_x = (cursor_x - margin * w) / (w - 2 * margin * w)
+        move_y = (cursor_y - margin * h) / (h - 2 * margin * h)
+
+        # clamp the values from 0 to 1
+        move_x = min(max(move_x, 0), 1)
+        move_y = min(max(move_y, 0), 1)
+
+        # zoom in
+        units = delta // (8 * 15)
         scale = 10
         self.addZoom(scale * units)
+
+        # get the difference in scrollbar values
+        # this is how far we can move
+        d_h_bar_max = h_bar.maximum() - h_bar_max
+        d_v_bar_max = v_bar.maximum() - v_bar_max
+
+        # get the new scrollbar values
+        new_h_bar_value = int(h_bar.value() + move_x * d_h_bar_max)
+        new_v_bar_value = int(v_bar.value() + move_y * d_v_bar_max)
+
+        h_bar.setValue(new_h_bar_value)
+        v_bar.setValue(new_v_bar_value)
+
 
     def setFitWindow(self, value=True):
         if value:
@@ -925,6 +998,8 @@ class MainWindow(QMainWindow, WindowMixin):
             self.paintCanvas()
             self.addRecentFile(self.filePath)
             self.toggleActions(True)
+            counter = self.counterStr()
+
 
             # Label xml file and show bound box according to its filename
             if self.usingPascalVocFormat is True:
@@ -938,7 +1013,7 @@ class MainWindow(QMainWindow, WindowMixin):
                     if os.path.isfile(xmlPath):
                         self.loadPascalXMLByFilename(xmlPath)
 
-            self.setWindowTitle(__appname__ + ' ' + filePath)
+            self.setWindowTitle(__appname__ + ' ' + filePath + '\t' + counter)
 
             # Default : select last item if there is at least one item
             if self.labelList.count():
@@ -948,6 +1023,12 @@ class MainWindow(QMainWindow, WindowMixin):
             self.canvas.setFocus(True)
             return True
         return False
+
+    def counterStr(self):
+        """
+        Converts image counter to string representation.
+        """
+        return '[{} / {}]'.format(self.currIndex + 1, self.imgCount)
 
     def resizeEvent(self, event):
         if self.canvas and not self.image.isNull()\
@@ -1081,6 +1162,7 @@ class MainWindow(QMainWindow, WindowMixin):
         self.filePath = None
         self.fileListWidget.clear()
         self.mImgList = self.scanAllImages(dirpath)
+        self.imgCount = len(self.mImgList)
         self.openNextImg()
         for imgPath in self.mImgList:
             item = QListWidgetItem(imgPath)
@@ -1112,11 +1194,16 @@ class MainWindow(QMainWindow, WindowMixin):
         if self.filePath is None:
             return
 
-        currIndex = self.mImgList.index(self.filePath)
-        if currIndex - 1 >= 0:
-            filename = self.mImgList[currIndex - 1]
+        if self.imgCount <=0:
+            return
+
+        self.currIndex = self.mImgList.index(self.filePath)
+        if self.currIndex - 1 >= 0:
+            self.currIndex -= 1
+            filename = self.mImgList[self.currIndex]
             if filename:
                 self.loadFile(filename)
+        self.update_label_num()
 
     def openNextImg(self, _value=False):
         # Proceding next image without dialog if having any label
@@ -1129,20 +1216,22 @@ class MainWindow(QMainWindow, WindowMixin):
         if not self.mayContinue():
             return
 
-        if len(self.mImgList) <= 0:
+        if self.imgCount <= 0:
             return
 
         filename = None
         if self.filePath is None:
             filename = self.mImgList[0]
+            self.currIndex = 0
         else:
-            currIndex = self.mImgList.index(self.filePath)
-            if currIndex + 1 < len(self.mImgList):
-                filename = self.mImgList[currIndex + 1]
+            #self.currIndex = self.mImgList.index(self.filePath)
+            if self.currIndex + 1 < self.imgCount:
+                self.currIndex +=1
+                filename = self.mImgList[self.currIndex]
 
         if filename:
             self.loadFile(filename)
-
+        self.update_label_num()
 
     def openFile(self, _value=False):
         if not self.mayContinue():
@@ -1154,6 +1243,8 @@ class MainWindow(QMainWindow, WindowMixin):
         if filename:
             if isinstance(filename, (tuple, list)):
                 filename = filename[0]
+            self.currIndex = 0
+            self.imgCount = 1
             self.loadFile(filename)
 
     def saveFile(self, _value=False):
@@ -1262,6 +1353,9 @@ class MainWindow(QMainWindow, WindowMixin):
             self.setDirty()
 
     def copyShape(self):
+        if self.canvas.selected_shape is None:
+            # True if one accidentally touches the left mouse button before releasing
+            return
         self.canvas.endMove(copy=True)
         self.addLabel(self.canvas.selectedShape)
         self.setDirty()
@@ -1349,8 +1443,11 @@ def get_main_app(argv=[]):
     app.setWindowIcon(newIcon("app"))
     # Tzutalin 201705+: Accept extra agruments to change predefined class file
     # Usage : labelImg.py image predefClassFile
+    base_dir = os.path.dirname(__file__)
+    if sys.executable.find("roLabelImg.exe") > 0:
+        base_dir = os.path.dirname(os.path.realpath(sys.executable))
     win = MainWindow(argv[1] if len(argv) >= 2 else None,
-                     argv[2] if len(argv) >= 3 else os.path.join('data', 'predefined_classes.txt'))
+                     argv[2] if len(argv) >= 3 else os.path.join(base_dir,'data', 'predefined_classes.txt'))
     win.show()
     return app, win
 

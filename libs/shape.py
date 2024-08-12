@@ -12,10 +12,13 @@ except ImportError:
 from lib import distance
 import math
 
-DEFAULT_LINE_COLOR = QColor(0, 255, 0, 128)
+# DEFAULT_LINE_COLOR = QColor(0, 255, 0, 128)
+DEFAULT_LINE_COLOR = QColor(0, 255, 0)
 DEFAULT_FILL_COLOR = QColor(255, 0, 0, 128)
-DEFAULT_SELECT_LINE_COLOR = QColor(255, 255, 255)
-DEFAULT_SELECT_FILL_COLOR = QColor(0, 128, 255, 155)
+# DEFAULT_SELECT_LINE_COLOR = QColor(0, 0, 255)
+DEFAULT_SELECT_LINE_COLOR = QColor(255, 192, 203)
+# DEFAULT_SELECT_FILL_COLOR = QColor(0, 128, 255, 155)
+DEFAULT_SELECT_FILL_COLOR = QColor(0, 0, 0, 0)
 DEFAULT_VERTEX_FILL_COLOR = QColor(0, 255, 0, 255)
 DEFAULT_HVERTEX_FILL_COLOR = QColor(255, 0, 0)
 
@@ -34,15 +37,16 @@ class Shape(object):
     vertex_fill_color = DEFAULT_VERTEX_FILL_COLOR
     hvertex_fill_color = DEFAULT_HVERTEX_FILL_COLOR
     point_type = P_ROUND
-    point_size = 8
-    scale = 1.0
+    point_size = 6
+    scale = 1.5
 
-    def __init__(self, label=None, line_color=None,difficult = False):
+    def __init__(self, label=None, line_color=None,difficult = False,group_id = None):
         self.label = label
         self.points = []
         self.fill = False
         self.selected = False
         self.difficult = difficult
+        self.group_id = group_id
 
         self.direction = 0  # added by hy
         self.center = None # added by hy
@@ -111,7 +115,8 @@ class Shape(object):
             color = self.select_line_color if self.selected else self.line_color
             pen = QPen(color)
             # Try using integer sizes for smoother drawing(?)
-            pen.setWidth(max(1, int(round(2.0 / self.scale))))
+            # pen.setWidth(max(1, int(round(2.0 / self.scale))))
+            pen.setWidth(0.9)
             painter.setPen(pen)
 
             line_path = QPainterPath()
@@ -221,6 +226,7 @@ class Shape(object):
         shape.center = self.center
         shape.direction = self.direction
         shape.isRotated = self.isRotated
+        shape.group_id = self.group_id
 
         shape.fill = self.fill
         shape.selected = self.selected

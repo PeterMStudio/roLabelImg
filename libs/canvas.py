@@ -73,6 +73,10 @@ class Canvas(QWidget):
         self.hideNormal = False
         self.canOutOfBounding = False
         self.showCenter = False
+        self.show_labels = True
+
+        # initialisation for panning
+        self.pan_initial_pos = QPoint()
 
     def enterEvent(self, ev):
         self.overrideCursor(self._cursor)
@@ -172,6 +176,18 @@ class Canvas(QWidget):
                 self.shapeMoved.emit()
                 self.repaint()
                 self.status.emit("(%d,%d)." % (pos.x(), pos.y()))
+            else:
+                # self.MouseMove = ev.pos() - self.preMousePosition
+                # self.preMousePosition = ev.pos()
+                # self.prevPoint = self.pos() + self.MouseMove
+                # self.move(self.prevPoint)
+
+                # pan
+                delta_x = pos.x() - self.pan_initial_pos.x()
+                delta_y = pos.y() - self.pan_initial_pos.y()
+                self.scrollRequest.emit(delta_x, Qt.Horizontal)
+                self.scrollRequest.emit(delta_y, Qt.Vertical)
+                self.update()
             return
 
         # Just hovering over the canvas, 2 posibilities:
@@ -214,15 +230,20 @@ class Canvas(QWidget):
 
     def mousePressEvent(self, ev):
         pos = self.transformPos(ev.pos())
-        # print('sldkfj %d %d' % (pos.x(), pos.y()))
+        self.preMousePosition = ev.pos()
+        #('sldkfj %d %d' % (pos.x(), pos.y()))
         if ev.button() == Qt.LeftButton:
             self.hideBackroundShapes(True)
             if self.drawing():
                 self.handleDrawing(pos)
             else:                
-                self.selectShapePoint(pos)
+                selection = self.selectShapePoint(pos)
                 self.prevPoint = pos
                 self.repaint()
+                if selection is None:
+                    # pan
+                    QApplication.setOverrideCursor(QCursor(Qt.OpenHandCursor))
+                    self.pan_initial_pos = pos
         elif ev.button() == Qt.RightButton and self.editing():
             self.selectShapePoint(pos)
             self.hideBackroundShapes(True)
@@ -575,6 +596,45 @@ class Canvas(QWidget):
                 elif self.showCenter:
                     shape.fill = shape.selected or shape == self.hShape
                     shape.paintNormalCenter(p)
+        if self.show_labels:
+            font = QFont("Arial", int(max(6.0, int(round(8.0 / Shape.scale)))))
+            font.setPointSize(14)
+            p.setFont(
+                font
+                #QFont("Arial", int(round(8.0)))
+            )
+            labels = []
+            for shape in self.shapes:
+                d_text = 1.5
+                if not self.isVisible(shape):continue
+                label_text = shape.label
+                if not label_text:
+                    continue
+                fm = QFontMetrics(p.font())
+                bound_rect = fm.boundingRect(label_text)
+                try:
+                    bbox = shape.boundingRect()
+                except IndexError:
+                    continue
+                rect = QRect(
+                    int(bbox.x()),
+                    int(bbox.y() - bound_rect.height()),
+                    int(bound_rect.width()),
+                    int(bound_rect.height()),
+                )
+                text_pos = QPoint(
+                    int(bbox.x()),
+                    int(bbox.y() - 10 ),
+                )
+                labels.append((shape, rect, text_pos, label_text))
+            pen = QPen(QColor("#FFA500"), 8)
+            p.setPen(pen)
+            for shape, rect, _, _ in labels:
+                p.fillRect(rect, shape.line_color)
+            pen = QPen(QColor("#FFFFFF"), 8)
+            p.setPen(pen)
+            for _, _, text_pos, label_text in labels:
+                p.drawText(text_pos, label_text)
 
         if self.current:
             self.current.paint(p)

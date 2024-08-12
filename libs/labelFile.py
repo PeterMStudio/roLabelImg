@@ -104,7 +104,6 @@ class LabelFile(object):
         points = shape['points']
         center = shape['center']
         direction = shape['direction']
-
         cx = center.x()
         cy = center.y()
         
@@ -115,5 +114,7 @@ class LabelFile(object):
             (points[2][1]-points[1][1]) ** 2)
 
         angle = direction % math.pi
-
+        jiaodu = direction /math.pi * 180
+        jiaodu1 = angle /math.pi * 180
+        #print("direction:",direction,"angle:",angle,"jiaodu:",jiaodu,"jiaodu1:",jiaodu1)
         return (round(cx,4),round(cy,4),round(w,4),round(h,4),round(angle,6))

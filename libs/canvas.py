@@ -186,9 +186,22 @@ class Canvas(QWidget):
         self.status.emit("(%d,%d)." % (pos.x(), pos.y()))
 
         for shape in reversed([s for s in self.shapes if self.isVisible(s)]):
+
+            # if the point is in the shape , then highlight the shape
+            if shape.containsPoint(pos):
+                if self.selectedVertex():
+                    self.hShape.highlightClear()
+                self.hVertex, self.hShape = None, shape
+                # self.setToolTip(
+                #     "Click & drag to move shape '%s'" % shape.label)
+                # self.setStatusTip(self.toolTip())
+                self.setCursor(Qt.OpenHandCursor)
+                self.update()
+
             # Look for a nearby vertex to highlight. If that fails,
             # check if we happen to be inside a shape.
             index = shape.nearestVertex(pos, self.epsilon)
+
             if index is not None:
                 if self.selectedVertex():
                     self.hShape.highlightClear()
@@ -198,17 +211,9 @@ class Canvas(QWidget):
                 # self.setToolTip("Click & drag to move point.")
                 # self.setStatusTip(self.toolTip())
                 self.update()
-                return
-            elif shape.containsPoint(pos):
-                if self.selectedVertex():
-                    self.hShape.highlightClear()
-                self.hVertex, self.hShape = None, shape
-                # self.setToolTip(
-                #     "Click & drag to move shape '%s'" % shape.label)
-                # self.setStatusTip(self.toolTip())
-                self.setCursor(Qt.OpenHandCursor)
-                self.update()
-               # break
+                break
+
+
         else:  # Nothing found, clear highlights, reset state.
             self.setCursor(Qt.ArrowCursor)
             if self.hShape:

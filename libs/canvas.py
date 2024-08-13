@@ -185,10 +185,12 @@ class Canvas(QWidget):
         # self.setToolTip("Image")
         self.status.emit("(%d,%d)." % (pos.x(), pos.y()))
 
+        bHandle = False
         for shape in reversed([s for s in self.shapes if self.isVisible(s)]):
 
             # if the point is in the shape , then highlight the shape
             if shape.containsPoint(pos):
+                bHandle = True
                 if self.selectedVertex():
                     self.hShape.highlightClear()
                 self.hVertex, self.hShape = None, shape
@@ -203,6 +205,7 @@ class Canvas(QWidget):
             index = shape.nearestVertex(pos, self.epsilon)
 
             if index is not None:
+                #print("index is %d" % index)
                 if self.selectedVertex():
                     self.hShape.highlightClear()
                 self.hVertex, self.hShape = index, shape
@@ -211,10 +214,11 @@ class Canvas(QWidget):
                 # self.setToolTip("Click & drag to move point.")
                 # self.setStatusTip(self.toolTip())
                 self.update()
+                bHandle = True
                 break
 
 
-        else:  # Nothing found, clear highlights, reset state.
+        if not bHandle:
             self.setCursor(Qt.ArrowCursor)
             if self.hShape:
                 self.hShape.highlightClear()
@@ -585,6 +589,7 @@ class Canvas(QWidget):
         Shape.scale = self.scale
         for shape in self.shapes:
             shape.fill = shape.selected or shape == self.hShape
+            #print("shape fill is %d" % shape.fill)
             shape.paint(p)
             # shape 必须可见 并且 shape 被选中或者不隐藏背景
             # if (shape.selected or not self._hideBackround) and self.isVisible(shape):
@@ -614,25 +619,24 @@ class Canvas(QWidget):
                     bbox = shape.boundingRect()
                 except IndexError:
                     continue
+                margin = 5
                 rect = QRect(
-                    int(bbox.x()),
-                    int(bbox.y() - bound_rect.height()),
-                    int(bound_rect.width()),
-                    int(bound_rect.height()),
+                    int(bbox.x() + margin),
+                    int(bbox.y() + margin),
+                    int(bound_rect.width() + margin),
+                    int(bound_rect.height() + margin),
                 )
-                text_pos = QPoint(
-                    int(bbox.x()),
-                    int(bbox.y() - 10 ),
-                )
-                labels.append((shape, rect, text_pos, label_text))
-            pen = QPen(QColor("#FFA500"), 8)
-            p.setPen(pen)
-            for shape, rect, _, _ in labels:
+
+                labels.append((shape, rect, label_text))
+
+            for shape, rect, label_text in labels:
+                pen = QPen(QColor("#FFA500"), 8)
+                p.setPen(pen)
                 p.fillRect(rect, shape.line_color)
-            pen = QPen(QColor("#FFFFFF"), 8)
-            p.setPen(pen)
-            for _, _, text_pos, label_text in labels:
-                p.drawText(text_pos, label_text)
+                pen = QPen(QColor("#FFFFFF"), 8)
+                p.setPen(pen)
+                p.drawText(QRectF(rect), label_text)
+
 
         if self.current:
             self.current.paint(p)

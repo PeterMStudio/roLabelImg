@@ -1,23 +1,13 @@
+from PyQt5.QtGui import *
+from PyQt5.QtCore import *
+from PyQt5.QtWidgets import *
 
-try:
-    from PyQt5.QtGui import *
-    from PyQt5.QtCore import *
-    from PyQt5.QtWidgets import *
-except ImportError:
-    from PyQt4.QtGui import *
-    from PyQt4.QtCore import *
-
-#from PyQt4.QtOpenGL import *
 
 from shape import Shape
 from lib import distance
 import math
 
-CURSOR_DEFAULT = Qt.ArrowCursor
-CURSOR_POINT = Qt.PointingHandCursor
-CURSOR_DRAW = Qt.CrossCursor
-CURSOR_MOVE = Qt.ClosedHandCursor
-CURSOR_GRAB = Qt.OpenHandCursor
+
 
 # class Canvas(QGLWidget):
 
@@ -60,7 +50,6 @@ class Canvas(QWidget):
         self.hShape = None
         self.hVertex = None
         self._painter = QPainter()
-        self._cursor = CURSOR_DEFAULT
         # Menus:
         self.menus = (QMenu(), QMenu())
         # Set widget options.
@@ -77,15 +66,17 @@ class Canvas(QWidget):
 
         # initialisation for panning
         self.pan_initial_pos = QPoint()
+        self.save_cursor = None
 
     def enterEvent(self, ev):
-        self.overrideCursor(self._cursor)
+        self.save_cursor = self.cursor()
+        self.setCursor(Qt.ArrowCursor)
 
     def leaveEvent(self, ev):
-        self.restoreCursor()
+        self.setCursor(self.save_cursor)
 
     def focusOutEvent(self, ev):
-        self.restoreCursor()
+        self.setCursor(self.save_cursor)
 
     def isVisible(self, shape):
         return self.visible.get(shape, True)
@@ -114,12 +105,9 @@ class Canvas(QWidget):
         """Update line with last point and current coordinates."""
         pos = self.transformPos(ev.pos())
 
-        self.restoreCursor()
-
         # Polygon drawing.
         if self.drawing():
-
-            self.overrideCursor(CURSOR_DRAW)
+            self.setCursor(Qt.CrossCursor)
             if self.current:
                 color = self.lineColor
                 if self.outOfPixmap(pos):
@@ -131,7 +119,7 @@ class Canvas(QWidget):
                     # user:                    
                     pos = self.current[0]
                     color = self.current.line_color
-                    self.overrideCursor(CURSOR_POINT)
+                    self.setCursor(Qt.PointingHandCursor)
                     self.current.highlightVertex(0, Shape.NEAR_VERTEX)
                 self.line[1] = pos
                 self.line.line_color = color
@@ -145,7 +133,7 @@ class Canvas(QWidget):
             # print("right button")
             # if self.selectedShapeCopy and self.prevPoint:
             #     print("select shape copy")
-            #     self.overrideCursor(CURSOR_MOVE)
+            #     self.setCursor(Qt.ClosedHandCursor)
             #     self.boundedMoveShape(self.selectedShapeCopy, pos)
             #     self.repaint()
             # elif self.selectedShape:
@@ -171,7 +159,7 @@ class Canvas(QWidget):
                 self.shapeMoved.emit()
                 self.repaint()
             elif self.selectedShape and self.prevPoint:
-                self.overrideCursor(CURSOR_MOVE)
+                self.setCursor(Qt.ClosedHandCursor)
                 self.boundedMoveShape(self.selectedShape, pos)
                 self.shapeMoved.emit()
                 self.repaint()
@@ -194,7 +182,9 @@ class Canvas(QWidget):
         # - Highlight shapes
         # - Highlight vertex
         # Update shape/vertex fill and tooltip value accordingly.
-        self.setToolTip("Image")
+        # self.setToolTip("Image")
+        self.status.emit("(%d,%d)." % (pos.x(), pos.y()))
+
         for shape in reversed([s for s in self.shapes if self.isVisible(s)]):
             # Look for a nearby vertex to highlight. If that fails,
             # check if we happen to be inside a shape.
@@ -204,11 +194,11 @@ class Canvas(QWidget):
                     self.hShape.highlightClear()
                 self.hVertex, self.hShape = index, shape
                 shape.highlightVertex(index, shape.MOVE_VERTEX)
-                self.overrideCursor(CURSOR_POINT)
+                self.setCursor(Qt.PointingHandCursor)
                 # self.setToolTip("Click & drag to move point.")
                 # self.setStatusTip(self.toolTip())
                 self.update()
-                break
+                return
             elif shape.containsPoint(pos):
                 if self.selectedVertex():
                     self.hShape.highlightClear()
@@ -216,16 +206,16 @@ class Canvas(QWidget):
                 # self.setToolTip(
                 #     "Click & drag to move shape '%s'" % shape.label)
                 # self.setStatusTip(self.toolTip())
-                self.overrideCursor(CURSOR_GRAB)
+                self.setCursor(Qt.OpenHandCursor)
                 self.update()
                # break
         else:  # Nothing found, clear highlights, reset state.
+            self.setCursor(Qt.ArrowCursor)
             if self.hShape:
                 self.hShape.highlightClear()
                 self.update()
             self.hVertex, self.hShape = None, None
-        
-        self.status.emit("(%d,%d)." % (pos.x(), pos.y()))
+
         
 
     def mousePressEvent(self, ev):
@@ -242,7 +232,7 @@ class Canvas(QWidget):
                 self.repaint()
                 if selection is None:
                     # pan
-                    QApplication.setOverrideCursor(QCursor(Qt.OpenHandCursor))
+                    self.setCursor(Qt.OpenHandCursor)
                     self.pan_initial_pos = pos
         elif ev.button() == Qt.RightButton and self.editing():
             self.selectShapePoint(pos)
@@ -258,14 +248,14 @@ class Canvas(QWidget):
         self.hideBackroundShapes(False)      
         if ev.button() == Qt.RightButton and not self.selectedVertex():            
             menu = self.menus[bool(self.selectedShapeCopy)]
-            self.restoreCursor()
+            self.setCursor(Qt.ArrowCursor)
             if not menu.exec_(self.mapToGlobal(ev.pos()))\
                and self.selectedShapeCopy:
                 # Cancel the move by deleting the shadow copy.
                 self.selectedShapeCopy = None
                 self.repaint()
         elif ev.button() == Qt.LeftButton and self.selectedShape:
-            self.overrideCursor(CURSOR_GRAB)
+            self.setCursor(Qt.OpenHandCursor)
         elif ev.button() == Qt.LeftButton:
             pos = self.transformPos(ev.pos())
             if self.drawing():
@@ -589,13 +579,16 @@ class Canvas(QWidget):
         p.drawPixmap(0, 0, self.pixmap)
         Shape.scale = self.scale
         for shape in self.shapes:
-            if (shape.selected or not self._hideBackround) and self.isVisible(shape):
-                if (shape.isRotated and not self.hideRotated) or (not shape.isRotated and not self.hideNormal):
-                    shape.fill = shape.selected or shape == self.hShape
-                    shape.paint(p)
-                elif self.showCenter:
-                    shape.fill = shape.selected or shape == self.hShape
-                    shape.paintNormalCenter(p)
+            shape.fill = shape.selected or shape == self.hShape
+            shape.paint(p)
+            # shape 必须可见 并且 shape 被选中或者不隐藏背景
+            # if (shape.selected or not self._hideBackround) and self.isVisible(shape):
+            #     if (shape.isRotated and not self.hideRotated) or (not shape.isRotated and not self.hideNormal):
+            #         shape.fill = shape.selected or shape == self.hShape
+            #         shape.paint(p)
+            #     elif self.showCenter:
+            #         shape.fill = shape.selected or shape == self.hShape
+            #         shape.paintNormalCenter(p)
         if self.show_labels:
             font = QFont("Arial", int(max(6.0, int(round(8.0 / Shape.scale)))))
             font.setPointSize(14)
@@ -919,15 +912,7 @@ class Canvas(QWidget):
         self.visible[shape] = value
         self.repaint()
 
-    def overrideCursor(self, cursor):
-        self.restoreCursor()
-        self._cursor = cursor
-        QApplication.setOverrideCursor(cursor)
-
-    def restoreCursor(self):
-        QApplication.restoreOverrideCursor()
-
     def resetState(self):
-        self.restoreCursor()
+        self.setCursor(Qt.ArrowCursor)
         self.pixmap = None
         self.update()

@@ -305,6 +305,12 @@ class MainWindow(QMainWindow, WindowMixin):
         fitWidth = action('Fit &Width', self.setFitWidth,
                           'Ctrl+Shift+F', 'fit-width', u'Zoom follows window width',
                           checkable=True, enabled=False)
+
+        showLabel = action('Show/Hide Label', self.setShowLabel,
+                           'F1', 'show', u'Toggle Label Panel', checkable=True)
+        showLabel.setChecked(True)
+
+
         # Group zoom controls into a list for easier toggling.
         zoomActions = (self.zoomWidget, zoomIn, zoomOut,
                        zoomOrg, fitWindow, fitWidth)
@@ -328,9 +334,6 @@ class MainWindow(QMainWindow, WindowMixin):
                                 icon='color', tip=u'Change the fill color for this specific shape',
                                 enabled=False)
 
-        labels = self.dock.toggleViewAction()
-        labels.setText('Show/Hide Label Panel')
-        labels.setShortcut('Ctrl+Shift+L')
 
         # Lavel list context menu.
         labelMenu = QMenu()
@@ -372,10 +375,11 @@ class MainWindow(QMainWindow, WindowMixin):
                    (open, opendir, changeSavedir, openAnnotation, self.menus.recentFiles, save, saveAs, close, None, quit))
         addActions(self.menus.help, (help,))
         addActions(self.menus.view, (
-            labels, advancedMode, None,
+             advancedMode, None,
             hideAll, showAll, None,
             zoomIn, zoomOut, zoomOrg, None,
-            fitWindow, fitWidth))
+            fitWindow, fitWidth, None,
+            showLabel))
 
         self.menus.file.aboutToShow.connect(self.updateFileMenu)
 
@@ -935,6 +939,12 @@ class MainWindow(QMainWindow, WindowMixin):
             self.actions.fitWidth.setChecked(False)
         self.zoomMode = self.FIT_WINDOW if value else self.MANUAL_ZOOM
         self.adjustScale()
+
+    def setShowLabel(self, value):
+        self.canvas.setShowLabels(value)
+
+    def getShowLabel(self):
+        return self.canvas.getShowLabels()
 
     def setFitWidth(self, value=True):
         if value:

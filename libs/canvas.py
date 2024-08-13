@@ -890,6 +890,12 @@ class Canvas(QWidget):
         self.shapes[-1].label = text
         return self.shapes[-1]
 
+    def setShowLabels(self, value):
+        self.show_labels = value
+        self.update()
+    def getShowLabels(self):
+        return self.show_labels
+
     def undoLastLine(self):
         assert self.shapes
         self.current = self.shapes.pop()

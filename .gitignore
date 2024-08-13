@@ -8,3 +8,5 @@ roLabelImg.py.bak
 CONTRIBUTING.rst
 LICENSE
 .idea
+build
+dist

@@ -6,7 +6,7 @@ block_cipher = None
 
 a = Analysis(
     ['roLabelImg.py'],
-    pathex=['./', './libs', 'D:\\Miniconda3\\envs\\LabelImg\\Scripts'],
+    pathex=['./', './libs'],
     binaries=[],
     datas=[('./data', 'data/')],
     hiddenimports=[],
@@ -28,7 +28,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='roLabelImg',
+    name='labelImg',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

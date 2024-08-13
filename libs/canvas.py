@@ -186,8 +186,9 @@ class Canvas(QWidget):
         self.status.emit("(%d,%d)." % (pos.x(), pos.y()))
 
         bHandle = False
-        for shape in reversed([s for s in self.shapes if self.isVisible(s)]):
-
+        for shape in self.shapes:
+            if not self.isVisible(shape):
+                continue
             # if the point is in the shape , then highlight the shape
             if shape.containsPoint(pos):
                 bHandle = True

@@ -34,6 +34,7 @@ from shape import Shape, DEFAULT_LINE_COLOR, DEFAULT_FILL_COLOR
 from canvas import Canvas
 from zoomWidget import ZoomWidget
 from labelDialog import LabelDialog
+from labelTableView import *
 from colorDialog import ColorDialog
 from labelFile import LabelFile, LabelFileError
 from toolBar import ToolBar
@@ -164,6 +165,46 @@ class MainWindow(QMainWindow, WindowMixin):
         # Connect to itemChanged to detect checkbox changes.
         self.labelList.itemChanged.connect(self.labelItemChanged)
         listLayout.addWidget(self.labelList)
+
+
+
+        searchLayout = QHBoxLayout()
+        searchLayout.setContentsMargins(4, 0, 4, 0)
+        searchLayout.setSpacing(4)
+        self.searchLabel = QLabel('查找:')
+        self.searchEdit = QLineEdit()
+        self.searchEdit.textChanged.connect(self.sltSearch)
+        self.searchBtnClear = QPushButton('清空')
+        self.searchBtnClear.clicked.connect(lambda: self.searchEdit.setText(''))
+
+        searchLayout.addWidget(self.searchLabel)
+        searchLayout.addWidget(self.searchEdit)
+        searchLayout.addWidget(self.searchBtnClear)
+        listLayout.addLayout(searchLayout)
+
+        sortLayout = QHBoxLayout()
+        sortLayout.setContentsMargins(4, 0, 4, 0)
+        sortLayout.setSpacing(4)
+        self.sortPositive = QCheckBox('正序')
+        self.sortPositive.setChecked(False)
+        self.sortPositive.stateChanged.connect(lambda : self.sltSort(self.sortPositive))
+        self.sortNegative = QCheckBox('倒序')
+        self.sortNegative.setChecked(False)
+        self.sortNegative.stateChanged.connect(lambda : self.sltSort(self.sortNegative))
+
+        sortLayout.addWidget(self.sortPositive)
+        sortLayout.addWidget(self.sortNegative)
+        # add spaceritem
+        sortLayout.addSpacerItem(QSpacerItem(1, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
+        listLayout.addLayout(sortLayout)
+
+        self.labelTableView = LabelTableView()
+        listLayout.addWidget(self.labelTableView)
+
+
+
+
+
         self.dock = QDockWidget(u'Box Labels', self)
         self.dock.setObjectName(u'Label')
         self.dock.setWidget(labelListContainer)
@@ -571,6 +612,7 @@ class MainWindow(QMainWindow, WindowMixin):
         self.itemsToShapes.clear()
         self.shapesToItems.clear()
         self.labelList.clear()
+        self.labelTableView.clear()
         self.filePath = None
         self.imageData = None
         self.labelFile = None
@@ -669,6 +711,30 @@ class MainWindow(QMainWindow, WindowMixin):
             item.setText(text)
             self.setDirty()
 
+    def sltSearch(self, text):
+        isEmtpy = text == ''
+        if isEmtpy:
+            self.labelTableView.clearMatchName()
+        else:
+            self.labelTableView.setMatchName(text)
+
+    def sltSort(self,sender):
+        ## 3种结果 正序 倒序 无序 ; 0 1 2
+        val = 2
+        # 目标被选中 , 则取消其他选中
+        if sender.isChecked():
+            if sender == self.sortPositive:
+                self.sortNegative.setChecked(False)
+                val = 0
+            else:
+                self.sortPositive.setChecked(False)
+                val = 1
+
+        self.labelTableView.setSortMode(val)
+
+
+
+
     # Tzutalin 20160906 : Add file list and dock to move faster
     def fileitemDoubleClicked(self, item=None):
         self.currIndex = self.mImgList.index(ustr(item.text()))
@@ -730,6 +796,11 @@ class MainWindow(QMainWindow, WindowMixin):
         item.setCheckState(Qt.Checked)
         self.itemsToShapes[item] = shape
         self.shapesToItems[shape] = item
+
+        labelItem = LabelItem(shape)
+        self.labelTableView.append(labelItem)
+
+
         self.labelList.addItem(item)
         self.update_label_num()
         for action in self.actions.onShapesPresent:

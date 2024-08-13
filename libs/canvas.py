@@ -223,9 +223,8 @@ class Canvas(QWidget):
             self.setCursor(Qt.ArrowCursor)
             if self.hShape:
                 self.hShape.highlightClear()
-                self.update()
             self.hVertex, self.hShape = None, None
-
+            self.update()
         
 
     def mousePressEvent(self, ev):
@@ -589,17 +588,14 @@ class Canvas(QWidget):
         p.drawPixmap(0, 0, self.pixmap)
         Shape.scale = self.scale
         for shape in self.shapes:
-            shape.fill = shape.selected or shape == self.hShape
-            #print("shape fill is %d" % shape.fill)
-            shape.paint(p)
             # shape 必须可见 并且 shape 被选中或者不隐藏背景
-            # if (shape.selected or not self._hideBackround) and self.isVisible(shape):
-            #     if (shape.isRotated and not self.hideRotated) or (not shape.isRotated and not self.hideNormal):
-            #         shape.fill = shape.selected or shape == self.hShape
-            #         shape.paint(p)
-            #     elif self.showCenter:
-            #         shape.fill = shape.selected or shape == self.hShape
-            #         shape.paintNormalCenter(p)
+            if (shape.selected or not self._hideBackround) and self.isVisible(shape):
+                if (shape.isRotated and not self.hideRotated) or (not shape.isRotated and not self.hideNormal):
+                    shape.fill = shape.selected or shape == self.hShape
+                    shape.paint(p)
+                elif self.showCenter:
+                    shape.fill = shape.selected or shape == self.hShape
+                    shape.paintNormalCenter(p)
         if self.show_labels:
             font = QFont("Arial", int(max(6.0, int(round(8.0 / Shape.scale)))))
             font.setPointSize(14)
@@ -609,6 +605,9 @@ class Canvas(QWidget):
             )
             labels = []
             for shape in self.shapes:
+                visible = (shape.selected or not self._hideBackround) and self.isVisible(shape)
+                if not visible:
+                    continue
                 d_text = 1.5
                 if not self.isVisible(shape):continue
                 label_text = shape.label

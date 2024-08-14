@@ -15,6 +15,7 @@ import math
 class Canvas(QWidget):
     zoomRequest = pyqtSignal(int)
     scrollRequest = pyqtSignal(int, int)
+    scrollToRectF = pyqtSignal(QRectF)
     newShape = pyqtSignal()
     selectionChanged = pyqtSignal(bool)
     shapeMoved = pyqtSignal()
@@ -329,13 +330,19 @@ class Canvas(QWidget):
             self.current.popPoint()
             self.finalise()
 
-    def selectShape(self, shape):
+    def selectShape(self, shape, focusOnShape=False):
         self.deSelectShape()
         shape.selected = True
         self.selectedShape = shape
         self.setHiding()
         self.selectionChanged.emit(True)
         self.update()
+
+        if focusOnShape:
+            bbox = shape.boundingRect()
+            self.scrollToRectF.emit(bbox)
+
+
 
     def selectShapePoint(self, point):
         """Select the first shape created which contains this point."""
@@ -789,7 +796,7 @@ class Canvas(QWidget):
 
     def keyPressEvent(self, ev):
         key = ev.key()
-        
+
         if key == Qt.Key_Escape and self.current:
             print('ESC press')
             self.current = None

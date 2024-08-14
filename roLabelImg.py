@@ -216,6 +216,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
 
         self.canvas.zoomRequest.connect(self.zoomRequest)
+        self.canvas.scrollToRectF.connect(self.sltCenterOnRectF)
 
         scroll = QScrollArea()
         scroll.setWidget(self.canvas)
@@ -225,6 +226,13 @@ class MainWindow(QMainWindow, WindowMixin):
             Qt.Horizontal: scroll.horizontalScrollBar()
         }
         self.srollArea = scroll
+
+
+        ## print bar val
+        scroll.verticalScrollBar().valueChanged.connect(self.printBarVal)
+        scroll.horizontalScrollBar().valueChanged.connect(self.printBarVal)
+
+
         self.canvas.scrollRequest.connect(self.scrollRequest)
 
         self.canvas.newShape.connect(self.newShape)
@@ -525,7 +533,7 @@ class MainWindow(QMainWindow, WindowMixin):
     ## Support Functions ##
 
     def noShapes(self):
-        return self.labelTableView.count > 0
+        return self.labelTableView.count() > 0
 
     def toggleAdvancedMode(self, value=True):
         self._beginner = not value
@@ -539,6 +547,11 @@ class MainWindow(QMainWindow, WindowMixin):
         else:
             pass
             # self.dock.setFeatures(self.dock.features() ^ self.dockFeatures)
+
+    def printBarVal(self):
+        print('hValue is %d, vValue is %d' % (self.scrollBars[Qt.Horizontal].value(), self.scrollBars[Qt.Vertical].value()))
+        print('hRange(%d,%d) ' % (self.scrollBars[Qt.Horizontal].minimum(), self.scrollBars[Qt.Horizontal].maximum()))
+        print('vRange(%d,%d) ' % (self.scrollBars[Qt.Vertical].minimum(), self.scrollBars[Qt.Vertical].maximum()))
 
     def populateModeActions(self):
         if self.beginner():
@@ -649,7 +662,6 @@ class MainWindow(QMainWindow, WindowMixin):
             # Cancel creation.
             print('Cancel creation.')
             self.canvas.setEditing(True)
-            self.canvas.restoreCursor()
             self.actions.create.setEnabled(True)
             self.actions.createRo.setEnabled(True)
             
@@ -695,6 +707,37 @@ class MainWindow(QMainWindow, WindowMixin):
         if text is not None:
             self.labelTableView.modifyItemName(item,text)
             self.setDirty()
+
+    def sltCenterOnRectF(self, rectF):
+        #print('item rectF(%d,%d,%d,%d)' % (rectF.x(),rectF.y(),rectF.width(),rectF.height()))
+        viewport = self.srollArea.viewport()
+        # 打印 viewport 的大小
+        #print('viewport w:%d,h:%d' % (viewport.width(), viewport.height()))
+
+        # 打印 canvas 的大小
+        #print('canvas w:%d,h:%d' % (self.canvas.width(), self.canvas.height()))
+
+        # 计算原始图片的大小
+        imgSize = self.canvas.pixmap.size()
+        #print('imgSize w:%d,h:%d' % (imgSize.width(), imgSize.height()))
+
+        # rectF center 的相对比例
+        center = rectF.center()
+        #print('center x:%d,y:%d' % (center.x(), center.y()))
+
+        # 计算相对比例
+        percentH = center.x() / imgSize.width()
+        percentV = center.y() / imgSize.height()
+
+        # 计算新的滚动条位置
+        hValue = percentH * self.scrollBars[Qt.Horizontal].maximum()
+        vValue = percentV * self.scrollBars[Qt.Vertical].maximum()
+
+        #print('hValue:%d,vValue:%d' % (hValue, vValue))
+        self.scrollBars[Qt.Horizontal].setValue(hValue)
+        self.scrollBars[Qt.Vertical].setValue(vValue)
+
+
 
     def sltSearch(self, text):
         isEmtpy = text == ''
@@ -762,7 +805,10 @@ class MainWindow(QMainWindow, WindowMixin):
         else:
             shape = self.canvas.selectedShape
             if shape:
+                blocker = QSignalBlocker(self.labelTableView)
+                blocker.reblock()
                 self.labelTableView.selectByShape(shape)
+                blocker.unblock()
             else:
                 self.labelTableView.clearSelection()
         self.update_label_num()
@@ -858,7 +904,7 @@ class MainWindow(QMainWindow, WindowMixin):
             #QMessageBox.critical(self, "Label",item.text())
             self._noSelectionSlot = True
             shape = item.LabelShape
-            self.canvas.selectShape(shape)
+            self.canvas.selectShape(shape,True)
             # Add Chris
             self.diffcButton.setChecked(shape.difficult)
 

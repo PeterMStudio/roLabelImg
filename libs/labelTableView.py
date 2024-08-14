@@ -128,7 +128,7 @@ class LabelProxyModel(QSortFilterProxyModel):
         return leftData < rightData
 
 
-## ListView
+## TableView
 class LabelTableView(QTableView):
     model = None
     _proxyModel = None
@@ -229,8 +229,12 @@ class LabelTableView(QTableView):
     def selectByShape(self, shape):
         for i, item in enumerate(self.model.items):
             if item.LabelShape == shape:
-                self.scrollTo(self.model.index(i, 0))
-                self.selectRow(i)
+                index = self.model.index(i, 0)
+                ## index is visible in proxyModel
+                index = self._proxyModel.mapFromSource(index)
+                if index.isValid():
+                    self.scrollTo(index)
+                    self.selectRow(index.row())
                 break
 
     def findByShape(self, shape):
@@ -263,3 +267,4 @@ class LabelTableView(QTableView):
     def modifyItemName(self, item, name):
         item.name = name
         self.model.dataChanged.emit(self.model.index(self.model.items.index(item), 1), self.model.index(self.model.items.index(item), 1), [Qt.DisplayRole])
+

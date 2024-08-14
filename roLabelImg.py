@@ -549,6 +549,7 @@ class MainWindow(QMainWindow, WindowMixin):
             # self.dock.setFeatures(self.dock.features() ^ self.dockFeatures)
 
     def printBarVal(self):
+        return
         print('hValue is %d, vValue is %d' % (self.scrollBars[Qt.Horizontal].value(), self.scrollBars[Qt.Vertical].value()))
         print('hRange(%d,%d) ' % (self.scrollBars[Qt.Horizontal].minimum(), self.scrollBars[Qt.Horizontal].maximum()))
         print('vRange(%d,%d) ' % (self.scrollBars[Qt.Vertical].minimum(), self.scrollBars[Qt.Vertical].maximum()))
@@ -808,6 +809,7 @@ class MainWindow(QMainWindow, WindowMixin):
                 blocker = QSignalBlocker(self.labelTableView)
                 blocker.reblock()
                 self.labelTableView.selectByShape(shape)
+                self.updateCurLabel()
                 blocker.unblock()
             else:
                 self.labelTableView.clearSelection()
@@ -900,14 +902,20 @@ class MainWindow(QMainWindow, WindowMixin):
     def labelSelectionChanged(self):
         item = self.currentLabelViewItem()
         if item and self.canvas.editing():
-            self.current_label.setText("当前选中标注框标签为："+item.name)
             #QMessageBox.critical(self, "Label",item.text())
             self._noSelectionSlot = True
             shape = item.LabelShape
             self.canvas.selectShape(shape,True)
             # Add Chris
             self.diffcButton.setChecked(shape.difficult)
+        self.updateCurLabel()
 
+    def updateCurLabel(self):
+        item = self.currentLabelViewItem()
+        if item and self.canvas.editing():
+            self.current_label.setText("当前选中标注框标签为："+item.name)
+        else:
+            self.current_label.setText("当前选中标注框标签为：")
 
     def labelItemChanged(self, item):
         shape = item.LabelShape

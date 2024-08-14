@@ -64,7 +64,7 @@ class LabelListModel(QAbstractItemModel):
             return Qt.ItemIsEnabled
         # column 0 is checkable
         if index.column() == 0:
-            return Qt.ItemIsEnabled | Qt.ItemIsUserCheckable | Qt.ItemIsEditable | Qt.ItemIsSelectable
+            return Qt.ItemIsEnabled | Qt.ItemIsUserCheckable | Qt.ItemIsEditable
         elif index.column() == 1:
             return Qt.ItemIsEnabled | Qt.ItemIsSelectable
         return Qt.ItemIsEnabled
@@ -151,6 +151,7 @@ class LabelTableView(QTableView):
         self.setShowGrid(False)
 
         self.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.setColumnWidth(0, 20)
         # stretch the last column
         self.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
@@ -267,4 +268,13 @@ class LabelTableView(QTableView):
     def modifyItemName(self, item, name):
         item.name = name
         self.model.dataChanged.emit(self.model.index(self.model.items.index(item), 1), self.model.index(self.model.items.index(item), 1), [Qt.DisplayRole])
+
+
+    def keyReleaseEvent(self, *args, **kwargs):
+        super(LabelTableView, self).keyReleaseEvent(*args, **kwargs)
+
+        # get proxymodel selecteds
+        selecteds = self.selectedItems()
+        if len(selecteds) == 0:
+            return
 

@@ -50,6 +50,12 @@ class LabelListModel(QAbstractItemModel):
         if role == Qt.CheckStateRole:
             if index.column() == 0:
                 self.items[index.row()].checked = value == Qt.Checked
+                self.dataChanged.emit(index, index, [Qt.CheckStateRole])
+                return True
+        if role == Qt.DisplayRole:
+            if index.column() == 1:
+                self.items[index.row()].name = value
+                self.dataChanged.emit(index, index, [Qt.DisplayRole])
                 return True
         return False
 
@@ -66,7 +72,7 @@ class LabelListModel(QAbstractItemModel):
     def index(self, row, column, parent=...):
         return self.createIndex(row, column, self.items[row])
 
-    def parent(self):
+    def parent(self, index=QModelIndex()):
         return QModelIndex()
 
     # return LabelItem
@@ -127,6 +133,9 @@ class LabelTableView(QTableView):
     model = None
     _proxyModel = None
 
+    sig_selection_changed = pyqtSignal()
+    sig_double_clicked = pyqtSignal()
+    sig_itemChanged = pyqtSignal(LabelItem)
     def __init__(self, parent=None):
         super(LabelTableView, self).__init__(parent)
 
@@ -134,6 +143,8 @@ class LabelTableView(QTableView):
         self._proxyModel = LabelProxyModel()
         self._proxyModel.setSourceModel(self.model)
         self.setModel(self._proxyModel)
+
+        self.model.dataChanged.connect(self.onDataChanged)
 
         self.horizontalHeader().hide()
         self.verticalHeader().hide()
@@ -148,7 +159,10 @@ class LabelTableView(QTableView):
         self.verticalHeader().setDefaultSectionSize(20)
 
         # trigger signal when checkbox is clicked
-        self.setEditTriggers(QAbstractItemView.SelectedClicked)
+        self.setEditTriggers(QAbstractItemView.DoubleClicked)
+
+        self.setMouseTracking(True)
+        self.doubleClicked.connect(self.sltDoubleClicked)
 
         self.setFocusPolicy(Qt.NoFocus)
         self.setAlternatingRowColors(False)
@@ -185,3 +199,68 @@ class LabelTableView(QTableView):
             self._proxyModel.sort(1, Qt.DescendingOrder)
         else:
             self._proxyModel.sort(-1)
+
+    def sltDoubleClicked(self,index):
+        #print("doubleClicked %d" % index.row())
+        #index is selected ?
+
+        selcted = self.selectionModel().isSelected(index)
+
+        if selcted:
+            self.sig_double_clicked.emit()
+
+    def selectionChanged(self, selected, deselected):
+        super(LabelTableView, self).selectionChanged(selected, deselected)
+        ## emit sig_selection_changed
+        self.sig_selection_changed.emit()
+
+
+    def selectedItems(self):
+        items = []
+        for index in self.selectionModel().selectedRows():
+            items.append(self.model.getNodeByIndex(self._proxyModel.mapToSource(index)))
+        return items
+
+    def item(self,row):
+        return self.model.getNodeByIndex(self.model.index(row,0))
+
+    def count(self):
+        return self.model.rowCount()
+
+    def selectByShape(self, shape):
+        for i, item in enumerate(self.model.items):
+            if item.LabelShape == shape:
+                self.scrollTo(self.model.index(i, 0))
+                self.selectRow(i)
+                break
+
+    def findByShape(self, shape):
+        for i, item in enumerate(self.model.items):
+            if item.LabelShape == shape:
+                return item
+        return None
+
+    def remByShape(self, shape):
+        for i, item in enumerate(self.model.items):
+            if item.LabelShape == shape:
+                self.model.remove(i)
+                break
+
+    def selectLast(self):
+        if self.count() > 0:
+            self.selectRow(self.count() - 1)
+
+    def toggleAll(self, checked):
+        for item in self.model.items:
+            item.checked = checked
+        self.model.dataChanged.emit(self.model.index(0, 0), self.model.index(self.model.rowCount() - 1, 0))
+
+    def onDataChanged(self, topLeft, bottomRight, roles):
+        for i in range(topLeft.row(), bottomRight.row() + 1):
+            labelItem = self.model.getNodeByIndex(self.model.index(i, 0))
+            self.sig_itemChanged.emit(labelItem)
+
+
+    def modifyItemName(self, item, name):
+        item.name = name
+        self.model.dataChanged.emit(self.model.index(self.model.items.index(item), 1), self.model.index(self.model.items.index(item), 1), [Qt.DisplayRole])

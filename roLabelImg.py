@@ -117,9 +117,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
         # Main widgets and related state.
         self.labelDialog = LabelDialog(parent=self, listItem=self.labelHist)
-        
-        self.itemsToShapes = {}
-        self.shapesToItems = {}
+
         self.prevLabelText = ''
 
         listLayout = QVBoxLayout()
@@ -154,20 +152,6 @@ class MainWindow(QMainWindow, WindowMixin):
         listLayout.addWidget(self.label_num)
         listLayout.addWidget(self.current_label)
 
-
-        # Create and add a widget for showing current label items
-        self.labelList = QListWidget()
-        labelListContainer = QWidget()
-        labelListContainer.setLayout(listLayout)
-        self.labelList.itemActivated.connect(self.labelSelectionChanged)
-        self.labelList.itemSelectionChanged.connect(self.labelSelectionChanged)
-        self.labelList.itemDoubleClicked.connect(self.editLabel)
-        # Connect to itemChanged to detect checkbox changes.
-        self.labelList.itemChanged.connect(self.labelItemChanged)
-        listLayout.addWidget(self.labelList)
-
-
-
         searchLayout = QHBoxLayout()
         searchLayout.setContentsMargins(4, 0, 4, 0)
         searchLayout.setSpacing(4)
@@ -198,10 +182,14 @@ class MainWindow(QMainWindow, WindowMixin):
         sortLayout.addSpacerItem(QSpacerItem(1, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
         listLayout.addLayout(sortLayout)
 
+        labelListContainer = QWidget()
+        labelListContainer.setLayout(listLayout)
+
         self.labelTableView = LabelTableView()
+        self.labelTableView.sig_selection_changed.connect(self.labelSelectionChanged)
+        self.labelTableView.sig_double_clicked.connect(self.editLabel)
+        self.labelTableView.sig_itemChanged.connect(self.labelItemChanged)
         listLayout.addWidget(self.labelTableView)
-
-
 
 
 
@@ -379,8 +367,8 @@ class MainWindow(QMainWindow, WindowMixin):
         # Lavel list context menu.
         labelMenu = QMenu()
         addActions(labelMenu, (edit, delete))
-        self.labelList.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.labelList.customContextMenuRequested.connect(
+        self.labelTableView.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.labelTableView.customContextMenuRequested.connect(
             self.popLabelListMenu)
 
         # Store actions for further handling.
@@ -410,7 +398,7 @@ class MainWindow(QMainWindow, WindowMixin):
             view=self.menu('&View'),
             help=self.menu('&Help'),
             recentFiles=QMenu('Open &Recent'),
-            labelList=labelMenu)
+            labelTableView=labelMenu)
 
         addActions(self.menus.file,
                    (open, opendir, changeSavedir, openAnnotation, self.menus.recentFiles, save, saveAs, close, None, quit))
@@ -537,7 +525,7 @@ class MainWindow(QMainWindow, WindowMixin):
     ## Support Functions ##
 
     def noShapes(self):
-        return not self.itemsToShapes
+        return self.labelTableView.count > 0
 
     def toggleAdvancedMode(self, value=True):
         self._beginner = not value
@@ -609,17 +597,14 @@ class MainWindow(QMainWindow, WindowMixin):
         self.statusBar().show()
 
     def resetState(self):
-        self.itemsToShapes.clear()
-        self.shapesToItems.clear()
-        self.labelList.clear()
         self.labelTableView.clear()
         self.filePath = None
         self.imageData = None
         self.labelFile = None
         self.canvas.resetState()
 
-    def currentItem(self):
-        items = self.labelList.selectedItems()
+    def currentLabelViewItem(self):
+        items = self.labelTableView.selectedItems()
         if items:
             return items[0]
         return None
@@ -700,15 +685,15 @@ class MainWindow(QMainWindow, WindowMixin):
             menu.addAction(action)
 
     def popLabelListMenu(self, point):
-        self.menus.labelList.exec_(self.labelList.mapToGlobal(point))
+        self.menus.labelTableView.exec_(self.labelTableView.mapToGlobal(point))
 
     def editLabel(self, item=None):
         if not self.canvas.editing():
             return
-        item = item if item else self.currentItem()
-        text = self.labelDialog.popUp(item.text())
+        item = item if item else self.currentLabelViewItem()
+        text = self.labelDialog.popUp(item.name)
         if text is not None:
-            item.setText(text)
+            self.labelTableView.modifyItemName(item,text)
             self.setDirty()
 
     def sltSearch(self, text):
@@ -750,14 +735,14 @@ class MainWindow(QMainWindow, WindowMixin):
         if not self.canvas.editing():
             return
 
-        item = self.currentItem()
+        item = self.currentLabelViewItem()
         if not item: # If not selected Item, take the first one
-            item = self.labelList.item(self.labelList.count()-1)
+            item = self.labelTableView.item(self.labelTableView.count()-1)
 
         difficult = self.diffcButton.isChecked()
 
         try:
-            shape = self.itemsToShapes[item]
+            shape = item.LabelShape
         except:
             pass
         # Checked and Update
@@ -766,7 +751,7 @@ class MainWindow(QMainWindow, WindowMixin):
                 shape.difficult = difficult
                 self.setDirty()
             else:  # User probably changed item visibility
-                self.canvas.setShapeVisible(shape, item.checkState() == Qt.Checked)
+                self.canvas.setShapeVisible(shape, item.checked)
         except:
             pass
 
@@ -777,9 +762,9 @@ class MainWindow(QMainWindow, WindowMixin):
         else:
             shape = self.canvas.selectedShape
             if shape:
-                self.shapesToItems[shape].setSelected(True)
+                self.labelTableView.selectByShape(shape)
             else:
-                self.labelList.clearSelection()
+                self.labelTableView.clearSelection()
         self.update_label_num()
         self.actions.delete.setEnabled(selected)
         self.actions.copy.setEnabled(selected)
@@ -788,20 +773,11 @@ class MainWindow(QMainWindow, WindowMixin):
         self.actions.shapeFillColor.setEnabled(selected)
 
     def update_label_num(self):
-        self.label_num.setText(f"当前图片标注数量:{len(self.itemsToShapes.items())}")
+        self.label_num.setText(f"当前图片标注数量:{self.labelTableView.count()}")
 
     def addLabel(self, shape):
-        item = HashableQListWidgetItem(shape.label)
-        item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
-        item.setCheckState(Qt.Checked)
-        self.itemsToShapes[item] = shape
-        self.shapesToItems[shape] = item
-
         labelItem = LabelItem(shape)
         self.labelTableView.append(labelItem)
-
-
-        self.labelList.addItem(item)
         self.update_label_num()
         for action in self.actions.onShapesPresent:
             action.setEnabled(True)
@@ -810,10 +786,7 @@ class MainWindow(QMainWindow, WindowMixin):
         if shape is None:
             # print('rm empty label')
             return
-        item = self.shapesToItems[shape]
-        self.labelList.takeItem(self.labelList.row(item))
-        del self.shapesToItems[shape]
-        del self.itemsToShapes[item]
+        self.labelTableView.remByShape(shape)
         self.update_label_num()
 
     def loadLabels(self, shapes):
@@ -879,27 +852,27 @@ class MainWindow(QMainWindow, WindowMixin):
         self.shapeSelectionChanged(True)
 
     def labelSelectionChanged(self):
-        item = self.currentItem()
+        item = self.currentLabelViewItem()
         if item and self.canvas.editing():
-            self.current_label.setText("当前选中标注框标签为："+item.text())
+            self.current_label.setText("当前选中标注框标签为："+item.name)
             #QMessageBox.critical(self, "Label",item.text())
             self._noSelectionSlot = True
-            self.canvas.selectShape(self.itemsToShapes[item])
-            shape = self.itemsToShapes[item]
+            shape = item.LabelShape
+            self.canvas.selectShape(shape)
             # Add Chris
             self.diffcButton.setChecked(shape.difficult)
 
 
-
-
     def labelItemChanged(self, item):
-        shape = self.itemsToShapes[item]
-        label = item.text()
+        shape = item.LabelShape
+        label = item.name
         if label != shape.label:
-            shape.label = item.text()
+            shape.label = label
             self.setDirty()
         else:  # User probably changed item visibility
-            self.canvas.setShapeVisible(shape, item.checkState() == Qt.Checked)
+            self.canvas.setShapeVisible(shape, item.checked)
+
+        self.labelSelectionChanged()
 
     # Callback functions:
     def newShape(self):
@@ -1024,8 +997,7 @@ class MainWindow(QMainWindow, WindowMixin):
         self.adjustScale()
 
     def togglePolygons(self, value):
-        for item, shape in self.itemsToShapes.items():
-            item.setCheckState(Qt.Checked if value else Qt.Unchecked)
+        self.labelTableView.toggleAll(value)
 
     def loadFile(self, filePath=None):
         """Load the specified file, or the last opened file if None."""
@@ -1097,9 +1069,7 @@ class MainWindow(QMainWindow, WindowMixin):
             self.setWindowTitle(__appname__ + ' ' + filePath + '\t' + counter)
 
             # Default : select last item if there is at least one item
-            if self.labelList.count():
-                self.labelList.setCurrentItem(self.labelList.item(self.labelList.count()-1))
-                # self.labelList.setItemSelected(self.labelList.item(self.labelList.count()-1), True)
+            self.labelTableView.selectLast()
 
             self.canvas.setFocus(True)
             return True

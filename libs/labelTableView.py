@@ -205,8 +205,7 @@ class LabelTableView(QTableView):
         #index is selected ?
 
         selcted = self.selectionModel().isSelected(index)
-
-        if selcted:
+        if index.column() == 1 and selcted:
             self.sig_double_clicked.emit()
 
     def selectionChanged(self, selected, deselected):

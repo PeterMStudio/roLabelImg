@@ -3,7 +3,7 @@
 import sys
 from xml.etree import ElementTree
 from xml.etree.ElementTree import Element, SubElement
-
+import xml.dom.minidom
 try:
   from lxml import etree
   print("running with lxml.etree")
@@ -53,11 +53,14 @@ class PascalVocWriter:
             Return a pretty-printed XML string for the Element.
         """
         rough_string = ElementTree.tostring(elem, 'utf8')
-        root = etree.fromstring(rough_string)
-        try:
-            return etree.tostring(root, pretty_print=True)
-        except TypeError:
-            return etree.tostring(root)
+
+        rootStr = rough_string.decode('utf8')
+
+        w_xml = xml.dom.minidom.parseString(rootStr)  # or xml.dom.minidom.parseString(rough_string)
+        xml_pretty_str = w_xml.toprettyxml()
+        return xml_pretty_str
+
+
 
     def genXML(self):
         """
@@ -192,7 +195,7 @@ class PascalVocWriter:
             out_file = codecs.open(targetFile, 'w', encoding='utf-8')
 
         prettifyResult = self.prettify(root)
-        out_file.write(prettifyResult.decode('utf8'))
+        out_file.write(prettifyResult)
         out_file.close()
 
 

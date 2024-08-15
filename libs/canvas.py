@@ -605,7 +605,7 @@ class Canvas(QWidget):
                     shape.paintNormalCenter(p)
         if self.show_labels:
             font = QFont("Arial", int(max(6.0, int(round(8.0 / Shape.scale)))))
-            font.setPointSize(14)
+            font.setPointSize(10)
             p.setFont(
                 font
                 #QFont("Arial", int(round(8.0)))

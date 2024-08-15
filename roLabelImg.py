@@ -713,10 +713,16 @@ class MainWindow(QMainWindow, WindowMixin):
         #print('item rectF(%d,%d,%d,%d)' % (rectF.x(),rectF.y(),rectF.width(),rectF.height()))
         viewport = self.srollArea.viewport()
         # 打印 viewport 的大小
-        #print('viewport w:%d,h:%d' % (viewport.width(), viewport.height()))
+        print('viewport w:%d,h:%d' % (viewport.width(), viewport.height()))
 
         # 打印 canvas 的大小
-        #print('canvas w:%d,h:%d' % (self.canvas.width(), self.canvas.height()))
+        print('canvas w:%d,h:%d' % (self.canvas.width(), self.canvas.height()))
+
+
+        # viewport percentage
+        percentViewH = rectF.width() / self.canvas.width()
+        percentViewV = rectF.height() / self.canvas.height()
+
 
         # 计算原始图片的大小
         imgSize = self.canvas.pixmap.size()
@@ -729,6 +735,8 @@ class MainWindow(QMainWindow, WindowMixin):
         # 计算相对比例
         percentH = center.x() / imgSize.width()
         percentV = center.y() / imgSize.height()
+
+
 
         # 计算新的滚动条位置
         hValue = percentH * self.scrollBars[Qt.Horizontal].maximum()

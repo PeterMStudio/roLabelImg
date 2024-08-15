@@ -254,11 +254,6 @@ class LabelTableView(QTableView):
         if self.count() > 0:
             self.selectRow(self.count() - 1)
 
-    def toggleAll(self, checked):
-        for item in self.model.items:
-            item.checked = checked
-        self.model.dataChanged.emit(self.model.index(0, 0), self.model.index(self.model.rowCount() - 1, 0))
-
     def onDataChanged(self, topLeft, bottomRight, roles):
         for i in range(topLeft.row(), bottomRight.row() + 1):
             labelItem = self.model.getNodeByIndex(self.model.index(i, 0))
@@ -270,11 +265,35 @@ class LabelTableView(QTableView):
         self.model.dataChanged.emit(self.model.index(self.model.items.index(item), 1), self.model.index(self.model.items.index(item), 1), [Qt.DisplayRole])
 
 
-    def keyReleaseEvent(self, *args, **kwargs):
-        super(LabelTableView, self).keyReleaseEvent(*args, **kwargs)
 
-        # get proxymodel selecteds
-        selecteds = self.selectedItems()
-        if len(selecteds) == 0:
+    def prevSelect(self):
+        # 获取代理模型上的选中
+        selected = self.selectionModel().selectedRows()
+        if len(selected) == 0:
             return
+        #last
+        curSelected = selected[len(selected) - 1]
+        if curSelected.row() == 0:
+            return
+
+        # get previous index
+        prevIndex = self._proxyModel.index(curSelected.row() - 1, 1)
+        # get source index
+        sourceIndex = self._proxyModel.mapToSource(prevIndex)
+
+        item = self.model.getNodeByIndex(sourceIndex)
+        self.selectByShape(item.LabelShape)
+
+
+    def nextSelect(self):
+        selected = self.selectionModel().selectedRows()
+        if len(selected) == 0:
+            return
+        curSelected = selected[0]
+        if curSelected.row() == self.count() - 1:
+            return
+        nextIndex = self._proxyModel.index(curSelected.row() + 1, 1)
+        sourceIndex = self._proxyModel.mapToSource(nextIndex)
+        item = self.model.getNodeByIndex(sourceIndex)
+        self.selectByShape(item.LabelShape)
 

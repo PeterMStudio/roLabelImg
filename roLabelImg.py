@@ -312,13 +312,6 @@ class MainWindow(QMainWindow, WindowMixin):
                               'Ctrl+Shift+A', 'expert', u'Switch to advanced mode',
                               checkable=True)
 
-        hideAll = action('&Hide\nRectBox', partial(self.togglePolygons, False),
-                         'Ctrl+H', 'hide', u'Hide all Boxs',
-                         enabled=False)
-        showAll = action('&Show\nRectBox', partial(self.togglePolygons, True),
-                         'Ctrl+A', 'hide', u'Show all Boxs',
-                         enabled=False)
-
         help = action('&Tutorial', self.tutorial, 'Ctrl+T', 'help',
                       u'Show demos')
 
@@ -345,7 +338,14 @@ class MainWindow(QMainWindow, WindowMixin):
 
         showLabel = action('Show/Hide Label', self.setShowLabel,
                            'F1', 'show', u'Toggle Label Panel', checkable=True)
+
         showLabel.setChecked(True)
+
+
+        prevSelect = action('Prev Select', self.selectPrevLabelItem,
+                            'F', 'prev', u'Prev Select', enabled=True)
+        nextSelect = action('Next Select', self.selectNextLabelItem,
+                            'G', 'next', u'Next Select', enabled=True)
 
 
         # Group zoom controls into a list for easier toggling.
@@ -398,7 +398,7 @@ class MainWindow(QMainWindow, WindowMixin):
                                                delete, shapeLineColor, shapeFillColor),
                               onLoadActive=(
                                   close, create, createMode, editMode),
-                              onShapesPresent=(saveAs, hideAll, showAll))
+                              onShapesPresent=(saveAs,))
 
         self.menus = struct(
             file=self.menu('&File'),
@@ -413,10 +413,9 @@ class MainWindow(QMainWindow, WindowMixin):
         addActions(self.menus.help, (help,))
         addActions(self.menus.view, (
              advancedMode, None,
-            hideAll, showAll, None,
             zoomIn, zoomOut, zoomOrg, None,
             fitWindow, fitWidth, None,
-            showLabel))
+            showLabel,prevSelect,nextSelect))
 
         self.menus.file.aboutToShow.connect(self.updateFileMenu)
 
@@ -433,8 +432,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
         self.actions.advanced = (
             open, save, None,
-            createMode, editMode, None,
-            hideAll, showAll)
+            createMode, editMode, None)
 
         self.statusBar().showMessage('%s started.' % __appname__)
         self.statusBar().show()
@@ -534,6 +532,12 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def noShapes(self):
         return self.labelTableView.count() > 0
+
+    def selectPrevLabelItem(self):
+        self.labelTableView.prevSelect()
+
+    def selectNextLabelItem(self):
+        self.labelTableView.nextSelect()
 
     def toggleAdvancedMode(self, value=True):
         self._beginner = not value
@@ -1057,9 +1061,6 @@ class MainWindow(QMainWindow, WindowMixin):
             self.actions.fitWindow.setChecked(False)
         self.zoomMode = self.FIT_WIDTH if value else self.MANUAL_ZOOM
         self.adjustScale()
-
-    def togglePolygons(self, value):
-        self.labelTableView.toggleAll(value)
 
     def loadFile(self, filePath=None):
         """Load the specified file, or the last opened file if None."""
